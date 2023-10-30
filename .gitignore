@@ -1,0 +1,4 @@
+.vscode/
+mge.egg-info/
+build/
+**/__pycache__/

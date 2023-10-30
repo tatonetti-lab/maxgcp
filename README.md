@@ -1,2 +1,6 @@
-# mge
-Maximum genetics estimation
+# Maximum genetics estimation
+
+`mge` is a Python package that implements maximum genetics estimation (MGE), a method that optimizes a linear phenotype definition to maximize its heritability and genetic correlation with a trait of interest.
+In short, this method results in a phenotype definition that is, close to the genetic component of the trait of interest, on the individual level.
+This phenotype definition can be used in various applications, including enhancement of statistical power in genome-wide association studies (GWAS).
+`mge` requires only estimates of genetic and phenotypic covariances, which can be obtained from GWAS summary statistics.

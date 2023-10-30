@@ -1,0 +1,27 @@
+[project]
+name = "mge"
+version = "0.0.1"
+requires-python = ">=3.10"
+readme = "README.md"
+authors = [
+    {name = "Michael Zietz", email = "michael.zietz@gmail.com"}
+]
+
+[tool.setuptools]
+packages = ["mge"]
+
+[build-system]
+requires = ["setuptools", "jax", "jaxlib", "optax", "pandas"]
+build-backend = "setuptools.build_meta"
+
+[project.optional-dependencies]
+test = ["pytest"]
+
+# [project.scripts]
+# indirect-gwas = "indirect_gwas.cli:main"
+
+[tool.pytest.ini_options]
+pythonpath = "src"
+addopts = [
+    "--import-mode=importlib",
+]
