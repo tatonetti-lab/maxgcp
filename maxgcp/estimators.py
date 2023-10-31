@@ -104,15 +104,17 @@ class AllGeneticEstimator(Estimator):
         if print_iter:
             log_function_mapper(step, coef_mat, gamma_mat, C, P, h2_vec)
 
-        self._log_records.extend([
-            {"step": step, "phenotype": p, "loss": l, "h2": h, "rg": r}
-            for p, l, h, r in zip(
-                range(self.n_features),
-                np.asarray(genetic_loss_mapper(coef_mat, gamma_mat, C, P, h2_vec)),
-                np.asarray(h2_mapper(coef_mat, C, P)),
-                np.asarray(rg_mapper(coef_mat, gamma_mat, C, h2_vec)),
-            )
-        ])
+        self._log_records.extend(
+            [
+                {"step": step, "phenotype": p, "loss": l, "h2": h, "rg": r}
+                for p, l, h, r in zip(
+                    range(self.n_features),
+                    np.asarray(genetic_loss_mapper(coef_mat, gamma_mat, C, P, h2_vec)),
+                    np.asarray(h2_mapper(coef_mat, C, P)),
+                    np.asarray(rg_mapper(coef_mat, gamma_mat, C, h2_vec)),
+                )
+            ]
+        )
 
     def train(self, C, P, n_iter=1000, learning_rate=0.001, verbose=True, n_log=100):
         """
