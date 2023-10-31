@@ -1,5 +1,5 @@
 [project]
-name = "mge"
+name = "maxgcp"
 version = "0.0.1"
 requires-python = ">=3.10"
 readme = "README.md"
@@ -8,7 +8,7 @@ authors = [
 ]
 
 [tool.setuptools]
-packages = ["mge"]
+packages = ["maxgcp"]
 
 [build-system]
 requires = ["setuptools", "jax", "jaxlib", "optax", "pandas"]
@@ -18,7 +18,7 @@ build-backend = "setuptools.build_meta"
 test = ["pytest"]
 
 # [project.scripts]
-# indirect-gwas = "indirect_gwas.cli:main"
+# maxgcp = "maxgcp.cli:main"
 
 [tool.pytest.ini_options]
 pythonpath = "src"

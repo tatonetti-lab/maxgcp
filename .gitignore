@@ -1,4 +1,4 @@
 .vscode/
-mge.egg-info/
+maxgcp.egg-info/
 build/
 **/__pycache__/

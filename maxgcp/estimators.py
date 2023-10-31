@@ -3,7 +3,7 @@ import jax.numpy as jnp
 import optax
 import pandas as pd
 
-from mge.loss_functions import (
+from maxgcp.loss_functions import (
     genetic_loss_mapper,
     genetic_loss_mean_mapper,
     genetic_loss_vector,
