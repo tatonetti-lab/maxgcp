@@ -1,5 +1,6 @@
 import jax
 import jax.numpy as jnp
+import numpy as np
 import optax
 import pandas as pd
 
@@ -38,9 +39,9 @@ class SingleGeneticEstimator(Estimator):
         self._log_records.append(
             {
                 "step": step,
-                "loss": genetic_loss_vector(coef, gamma, Cx, Px, h2_target).to_py(),
-                "h2": h2_vec(coef, Cx, Px).to_py(),
-                "rg": rg_vec(coef, gamma, Cx, h2_target).to_py(),
+                "loss": np.asarray(genetic_loss_vector(coef, gamma, Cx, Px, h2_target)),
+                "h2": np.asarray(h2_vec(coef, Cx, Px)),
+                "rg": np.asarray(rg_vec(coef, gamma, Cx, h2_target)),
             }
         )
 
@@ -102,15 +103,16 @@ class AllGeneticEstimator(Estimator):
     def _log_iteration(self, step, coef_mat, gamma_mat, C, P, h2_vec, print_iter=False):
         if print_iter:
             log_function_mapper(step, coef_mat, gamma_mat, C, P, h2_vec)
-        iter_log_df = pd.DataFrame(
-            {
-                "phenotype": range(self.n_features),
-                "loss": genetic_loss_mapper(coef_mat, gamma_mat, C, P, h2_vec).to_py(),
-                "h2": h2_mapper(coef_mat, C, P).to_py(),
-                "rg": rg_mapper(coef_mat, gamma_mat, C, h2_vec).to_py(),
-            }
-        ).assign(step=step)
-        self.log_df = pd.concat([self.log_df, iter_log_df])
+
+        self._log_records.extend([
+            {"step": step, "phenotype": p, "loss": l, "h2": h, "rg": r}
+            for p, l, h, r in zip(
+                range(self.n_features),
+                np.asarray(genetic_loss_mapper(coef_mat, gamma_mat, C, P, h2_vec)),
+                np.asarray(h2_mapper(coef_mat, C, P)),
+                np.asarray(rg_mapper(coef_mat, gamma_mat, C, h2_vec)),
+            )
+        ])
 
     def train(self, C, P, n_iter=1000, learning_rate=0.001, verbose=True, n_log=100):
         """
