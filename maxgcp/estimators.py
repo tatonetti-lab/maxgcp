@@ -130,7 +130,7 @@ class SingleGeneticEstimator(Estimator):
 
 
 class AllGeneticEstimator(Estimator):
-    def __init__(self, cov_G_X, cov_P_X):
+    def __init__(self, cov_G_X, cov_P_X, flatten_loss=False):
         super().__init__(cov_G_X, cov_P_X)
 
         # Create normalizer to zero coefficients on the diagonal
@@ -143,8 +143,13 @@ class AllGeneticEstimator(Estimator):
         self.cov_G_Z_X = self.normalizer * cov_G_X
 
         # Set up loss function
+        if flatten_loss:
+            raw_loss = genetic_loss_mean_mapper_flat
+        else:
+            raw_loss = genetic_loss_mean_mapper
+
         self.loss_fn = functools.partial(
-            genetic_loss_mean_mapper,
+            raw_loss,
             cov_G_Z_X=self.cov_G_Z_X,
             cov_G_X=cov_G_X,
             cov_P_X=cov_P_X,

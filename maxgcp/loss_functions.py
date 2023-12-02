@@ -25,6 +25,39 @@ def genetic_loss_mapper(coefficient_matrix, cov_G_Z_X, cov_G_X, cov_P_X) -> Arra
     )
 
 
+@jit
+def genetic_loss_vector_flat(
+    beta: Array, cov_G_z_X: Array, cov_G_X: Array, cov_P_X: Array, var_G_z: Array
+) -> Array:
+    """
+    Compute the genetic loss function for a single phenotype.
+
+    The genetic loss function for a phenotype y against target phenotype z is
+    |1 - rg(z, y)| + |1 - h2(y)|. For numerical stability here, we flatten the
+    quotients into sums of terms. Specifically, | 1 - h2(y) | has the same optimal
+    coefficients as | Var_P(y) - Var_G(y) |, and | 1 - rg(z, y) | has the same
+    optimal coefficients as | Cov_G(z, y) - sqrt(Var_G(z) * Var_G(y)) |.
+    """
+    h2_term = beta.T @ (cov_P_X - cov_G_X) @ beta
+    rg_term = (beta.T @ cov_G_z_X) - jnp.sqrt(var_G_z * beta.T @ cov_G_X @ beta)
+    return jnp.abs(h2_term) + jnp.abs(rg_term)
+
+
+@jit
+def genetic_loss_mean_mapper_flat(
+    coefficient_matrix, cov_G_Z_X, cov_G_X, cov_P_X
+) -> Array:
+    return jax.vmap(genetic_loss_vector_flat, (1, 1, None, None, 0))(
+        coefficient_matrix, cov_G_Z_X, cov_G_X, cov_P_X, jnp.diag(cov_G_X)
+    ).mean()
+
+
+def genetic_loss_mapper_flat(coefficient_matrix, cov_G_Z_X, cov_G_X, cov_P_X) -> Array:
+    return jax.vmap(genetic_loss_vector_flat, (1, 1, None, None, 0))(
+        coefficient_matrix, cov_G_Z_X, cov_G_X, cov_P_X, jnp.diag(cov_G_X)
+    )
+
+
 def h2_vec(beta, cov_G_X, cov_P_X):
     # Var_G(y) = sum_{i,j} beta_i beta_j Cov(g_i, g_j)
     # Var_P(y) = sum_{i,j} beta_i beta_j Cov(x_i, x_j)
