@@ -1,221 +1,124 @@
-import functools
+from typing import TypeAlias
 
-import jax  # type: ignore
+import jax
 import jax.numpy as jnp  # type: ignore
 import numpy as np  # type: ignore
-import optax  # type: ignore
-import pandas as pd  # type: ignore
+import scipy.linalg  # type: ignore
+from jax.typing import ArrayLike  # type: ignore
+from numpy.typing import NDArray  # type: ignore
 
-from maxgcp.loss_functions import (
-    genetic_loss_mapper,
-    genetic_loss_mean_mapper,
-    genetic_loss_vector,
-    h2_mapper,
-    h2_vec,
-    log_function,
-    log_function_mapper,
-    rg_mapper,
-    rg_vec,
-)
+Array: TypeAlias = jax.Array | NDArray
 
 
-class Estimator:
-    def __init__(self, cov_G_X, cov_P_X):
-        self.cov_G_X = cov_G_X
-        self.cov_P_X = cov_P_X
-        self.n_features = cov_G_X.shape[0]
-        self.coef = None
-        self._log_records = list()
-        self.opt_state = None
+def check_input(mat: Array):
+    """Check that the input is a valid covariance matrix"""
+    if mat.ndim != 2:
+        raise ValueError("Input must be 2D")
 
-    @property
-    def log_df(self):
-        return pd.DataFrame(self._log_records)
+    if mat.shape[0] != mat.shape[1]:
+        raise ValueError("Input must be square")
 
-    @property
-    def coefficients(self) -> np.ndarray:
-        if self.coef is None:
-            raise ValueError("Model has not been trained yet")
-
-        return np.asarray(self.coef)
-
-    def predict(self, X):
-        return X @ self.coef
+    if not np.allclose(mat, mat.T):
+        raise ValueError("Input must be symmetric")
 
 
-class SingleGeneticEstimator(Estimator):
-    def __init__(self, cov_G_X, cov_P_X):
-        super().__init__(cov_G_X, cov_P_X)
+def check_inputs(cov_G: Array, cov_P: Array):
+    """Check that the inputs are valid covariance matrices"""
+    check_input(cov_G)
+    check_input(cov_P)
 
-        # Initialize coefficients to 1e-4
-        self.coef = 1e-4 * jnp.ones((self.n_features, 1))
-
-        # Set up loss function
-        self.loss_fn = functools.partial(
-            genetic_loss_vector,
-            cov_G_X=cov_G_X,
-            cov_P_X=cov_P_X,
-        )
-
-        # Gradient of loss function
-        self.loss_grad = jax.grad(self.loss_fn)
-
-    def _log_iteration(self, step, coef, h2_target, gamma, print_iter=False):
-        if print_iter:
-            log_function(step, coef, gamma, self.cov_G_X, self.cov_P_X, h2_target)
-
-        self._log_records.append(
-            {
-                "step": step,
-                "loss": np.asarray(
-                    genetic_loss_vector(
-                        coef, gamma, self.cov_G_X, self.cov_P_X, h2_target
-                    )
-                ),
-                "h2": np.asarray(h2_vec(coef, self.cov_G_X, self.cov_P_X)),
-                "rg": np.asarray(rg_vec(coef, gamma, self.cov_G_X, h2_target)),
-            }
-        )
-
-    def train(
-        self,
-        var_G_z,
-        cov_G_z_X,
-        n_iter=1000,
-        learning_rate=0.001,
-        reset_state=True,
-        verbose=True,
-        n_log=100,
-    ):
-        """
-        Train a model to predict genetic liabilities for a single trait
-
-        Parameters
-        ----------
-        var_G_z : float
-            Genetic variance of the target phenotype
-        cov_G_z_X : jax.numpy.ndarray
-            Vector of genetic covariances between features and the target (Shape: mx1)
-        n_iter : int, optional
-            Number of training iterations, by default 1000
-        learning_rate : float, optional
-            Learning rate for Adam optimizer, by default 0.001
-        reset_state : bool, optional
-            Whether to reset the optimizer state, by default True. If False, and the
-            model has been trained before, the previous optimizer state will be used to
-            continue training. Care should be taken when setting this to False, as the
-            optimizer state may not apply to the current target phenotype.
-        verbose : bool, optional
-            Whether to print during training, by default True
-        n_log : int, optional
-            How often to log loss, heritability, and genetic correlation, by default
-            100 steps
-        """
-        optimizer = optax.adam(learning_rate=learning_rate)
-
-        if reset_state or self.opt_state is None:
-            self.opt_state = optimizer.init(self.coef)
-
-        for i in range(n_iter):
-            if i % n_log == 0:
-                self._log_iteration(i, self.coef, var_G_z, cov_G_z_X, verbose)
-
-            grads = self.loss_grad(self.coef, cov_G_z_X, var_G_z)
-            updates, self.opt_state = optimizer.update(grads, self.opt_state)
-            self.coef = optax.apply_updates(self.coef, updates)
-
-        # Log at the end
-        self._log_iteration(n_iter, self.coef, var_G_z, cov_G_z_X, verbose)
-        return
+    if (cov_G.shape[0] != cov_G.shape[1]) or (cov_P.shape[0] != cov_P.shape[1]):
+        raise ValueError("Covariance matrices must be square")
 
 
-class AllGeneticEstimator(Estimator):
-    def __init__(self, cov_G_X, cov_P_X):
-        super().__init__(cov_G_X, cov_P_X)
+def fit_heritability(cov_G: ArrayLike, cov_P: ArrayLike) -> NDArray:
+    """
+    Fit a weight matrix to define phenotypes that are maximally heritable.
+    Definitions are linear combinations of the phenotypes whose genetic and
+    phenotypic covariance matrices are provided.
 
-        # Create normalizer to zero coefficients on the diagonal
-        self.normalizer = 1 - jnp.eye(self.n_features)
+    Parameters
+    ----------
+    cov_G : ArrayLike of shape (n_phenotypes, n_phenotypes)
+        Genetic covariance matrix.
+    cov_P : ArrayLike of shape (n_phenotypes, n_phenotypes)
+        Phenotypic covariance matrix.
 
-        # Initialize coefficients to 1e-4, but zero out the diagonal
-        self.coef = 1e-4 * self.normalizer
+    Returns
+    -------
+    weights : ndarray of shape (n_phenotypes, n_phenotypes)
+        Weight matrix that defines the heritable phenotypes.
+    """
+    cov_G = np.asarray(cov_G)
+    cov_P = np.asarray(cov_P)
+    check_inputs(cov_G, cov_P)
 
-        # Genetic covariance between features and targets (simply ignores self terms)
-        self.cov_G_Z_X = self.normalizer * cov_G_X
+    cov_G_sqrt: NDArray = scipy.linalg.sqrtm(cov_G)  # type: ignore
+    lhs = cov_G_sqrt @ np.linalg.pinv(cov_P) @ cov_G_sqrt
+    _, evecs = np.linalg.eig(lhs)
+    weights = np.linalg.pinv(cov_G_sqrt) @ evecs
+    return np.asarray(weights)
 
-        # Set up loss function
-        self.loss_fn = functools.partial(
-            genetic_loss_mean_mapper,
-            cov_G_Z_X=self.cov_G_Z_X,
-            cov_G_X=cov_G_X,
-            cov_P_X=cov_P_X,
-        )
 
-        # Gradient of loss function
-        self.loss_grad = jax.grad(self.loss_fn)
+def fit_coheritability(cov_G: ArrayLike, cov_P: ArrayLike) -> NDArray:
+    """
+    Fit a weight matrix to define phenotypes that are maximally coheritable
+    with the phenotypes whose genetic and phenotypic covariance matrices are
+    provided.
 
-    def _log_iteration(self, step, beta_mat, print_iter=False):
-        if print_iter:
-            log_function_mapper(
-                step, beta_mat, self.cov_G_Z_X, self.cov_G_X, self.cov_P_X
-            )
+    Parameters
+    ----------
+    cov_G : ArrayLike of shape (n_phenotypes, n_phenotypes)
+        Genetic covariance matrix.
+    cov_P : ArrayLike of shape (n_phenotypes, n_phenotypes)
+        Phenotypic covariance matrix.
 
-        self._log_records.extend(
-            [
-                {"step": step, "phenotype": p, "loss": loss, "h2": h, "rg": r}
-                for p, loss, h, r in zip(
-                    range(self.n_features),
-                    np.asarray(
-                        genetic_loss_mapper(
-                            beta_mat, self.cov_G_Z_X, self.cov_G_X, self.cov_P_X
-                        )
-                    ),
-                    np.asarray(h2_mapper(beta_mat, self.cov_G_X, self.cov_P_X)),
-                    np.asarray(rg_mapper(beta_mat, self.cov_G_Z_X, self.cov_G_X)),
-                )
-            ]
-        )
+    Returns
+    -------
+    weights : ndarray of shape (n_phenotypes, n_phenotypes)
+        Weight matrix that defines the coheritable phenotypes.
+    """
+    cov_G = jnp.asarray(cov_G)
+    cov_P = jnp.asarray(cov_P)
+    check_inputs(cov_G, cov_P)
 
-    def train(
-        self,
-        n_iter=1000,
-        learning_rate=1e-5,
-        reset_state=False,
-        verbose=True,
-        n_log=100,
-    ):
-        """
-        Train a model to infer the genetic component of each phenotype
+    weights, _, _, _ = jnp.linalg.lstsq(cov_P, cov_G, rcond=None)
+    return np.asarray(weights)
 
-        Parameters
-        ----------
-        n_iter : int, optional
-            Number of training iterations, by default 1000
-        learning_rate : float, optional
-            Learning rate for Adam optimizer, by default 0.001
-        reset_state : bool, optional
-            Whether to reset the optimizer state, by default False. If False, and the
-            model has been trained before, the previous optimizer state will be used to
-            continue training.
-        verbose : bool, optional
-            Whether to print during training, by default True
-        n_log : int, optional
-            How often to log loss, heritability, and genetic correlation, by default
-            100 steps
-        """
-        optimizer = optax.adam(learning_rate=learning_rate)
 
-        if reset_state or self.opt_state is None:
-            self.opt_state = optimizer.init(self.coef)
+def fit_genetic_correlation(phenotype_idx: int, cov_G: ArrayLike) -> NDArray:
+    """
+    Fit a weight vector to define a phenotype that is maximally correlated
+    with the phenotype at the provided index.
 
-        for i in range(n_iter):
-            if i % n_log == 0:
-                self._log_iteration(i, self.coef, verbose)
+    Unlike the other estimators, this estimator cannot be fit for every
+    phenotype, as the solution is trivially the identity matrix.
 
-            # Compute and normalize gradients
-            grads = self.loss_grad(self.coef) * self.normalizer
-            updates, self.opt_state = optimizer.update(grads, self.opt_state)
-            self.coef = optax.apply_updates(self.coef, updates)
+    TODO: This could actually be done by masking, not implemented.
 
-        # Log at the end
-        self._log_iteration(n_iter, self.coef, verbose)
-        return
+    Parameters
+    ----------
+    phenotype_idx : int
+        Index of the phenotype to correlate with.
+    cov_G : ArrayLike of shape (n_phenotypes, n_phenotypes)
+        Genetic covariance matrix.
+
+    Returns
+    -------
+    weights : ndarray of shape (n_phenotypes,)
+        Weight vector that defines the correlated phenotype.
+    """
+    cov_G = jnp.asarray(cov_G)
+    check_input(cov_G)
+
+    if cov_G.ndim != 2:
+        raise ValueError("Covariance matrix must be 2D")
+
+    if cov_G.shape[0] != cov_G.shape[1]:
+        raise ValueError("Covariance matrix must be square")
+
+    v = jnp.delete(cov_G[phenotype_idx], phenotype_idx, 0)
+    G = jnp.delete(jnp.delete(cov_G, phenotype_idx, 0), phenotype_idx, 1)
+
+    weights, _, _, _ = np.linalg.lstsq(G, v)
+    return np.asarray(weights)
