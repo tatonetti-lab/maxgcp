@@ -7,9 +7,10 @@ authors = [
     {name = "Michael Zietz", email = "michael.zietz@gmail.com"}
 ]
 
-dependencies = ["jax", "jaxlib", "optax", "pandas"]
+dependencies = ["jax", "jaxlib", "pandas"]
 
 [tool.setuptools]
+package-dir = {"" = "src"}
 packages = ["maxgcp"]
 
 [build-system]
@@ -18,9 +19,6 @@ build-backend = "setuptools.build_meta"
 
 [project.optional-dependencies]
 test = ["pytest"]
-
-# [project.scripts]
-# maxgcp = "maxgcp.cli:main"
 
 [tool.pytest.ini_options]
 pythonpath = "src"

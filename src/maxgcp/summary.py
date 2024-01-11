@@ -1,24 +1,25 @@
 import numpy as np
 import pandas as pd
+from numpy.typing import NDArray
 
 
-def conditional_heritability(weights, G, P):
+def conditional_heritability(weights: NDArray, G: NDArray, P: NDArray) -> NDArray:
     return np.diag(weights.T @ G @ weights) / np.diag(weights.T @ P @ weights)
 
 
-def conditional_rg(weights, G):
+def conditional_rg(weights: NDArray, G: NDArray) -> NDArray:
     return (G * weights).sum(axis=0) / np.sqrt(
         np.diag(G) * np.diag(weights.T @ G @ weights)
     )
 
 
-def conditional_coheritability(weights, G, P):
+def conditional_coheritability(weights: NDArray, G: NDArray, P: NDArray) -> NDArray:
     return (G * weights).sum(axis=0) / np.sqrt(
         np.diag(P) * np.diag(weights.T @ P @ weights)
     )
 
 
-def summary_metrics(weights, G, P):
+def summary_metrics(weights: NDArray, G: NDArray, P: NDArray) -> pd.DataFrame:
     wtPw = np.diag(weights.T @ P @ weights)
     wtGw = np.diag(weights.T @ G @ weights)
     oGw = (G * weights).sum(axis=0)
