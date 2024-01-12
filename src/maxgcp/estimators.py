@@ -18,7 +18,7 @@ def check_input(mat: Array):
     if mat.shape[0] != mat.shape[1]:
         raise ValueError("Input must be square")
 
-    if not np.allclose(mat, mat.T):
+    if not np.allclose(mat, mat.T, atol=1e-5):
         raise ValueError("Input must be symmetric")
 
 
