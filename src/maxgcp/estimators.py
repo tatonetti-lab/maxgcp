@@ -1,6 +1,6 @@
 from typing import TypeAlias
 
-import jax
+import jax  # type: ignore
 import jax.numpy as jnp  # type: ignore
 import numpy as np  # type: ignore
 import scipy.linalg  # type: ignore
@@ -57,7 +57,11 @@ def fit_heritability(cov_G: ArrayLike, cov_P: ArrayLike) -> NDArray:
     lhs = cov_G_sqrt @ np.linalg.pinv(cov_P) @ cov_G_sqrt
     _, evecs = np.linalg.eig(lhs)
     weights = np.linalg.pinv(cov_G_sqrt) @ evecs
-    return np.asarray(weights)
+    weights = np.asarray(weights)
+
+    # Normalize weights so that projections have unit variance
+    weights = weights / np.sqrt(np.diag(weights.T @ cov_P @ weights))
+    return weights
 
 
 def fit_coheritability(cov_G: ArrayLike, cov_P: ArrayLike) -> NDArray:
@@ -83,7 +87,11 @@ def fit_coheritability(cov_G: ArrayLike, cov_P: ArrayLike) -> NDArray:
     check_inputs(cov_G, cov_P)
 
     weights, _, _, _ = jnp.linalg.lstsq(cov_P, cov_G, rcond=None)
-    return np.asarray(weights)
+    weights = np.asarray(weights)
+
+    # Normalize weights so that projections have unit variance
+    weights = weights / np.sqrt(np.diag(weights.T @ cov_P @ weights))
+    return weights
 
 
 def fit_genetic_correlation(phenotype_idx: int, cov_G: ArrayLike) -> NDArray:
