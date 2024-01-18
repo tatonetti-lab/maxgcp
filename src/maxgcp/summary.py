@@ -1,6 +1,6 @@
-import numpy as np
-import pandas as pd
-from numpy.typing import NDArray
+import numpy as np  # type: ignore
+import pandas as pd  # type: ignore
+from numpy.typing import NDArray  # type: ignore
 
 
 def conditional_heritability(weights: NDArray, G: NDArray, P: NDArray) -> NDArray:
