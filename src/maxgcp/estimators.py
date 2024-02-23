@@ -1,13 +1,10 @@
 from typing import TypeAlias
 
-import jax  # type: ignore
-import jax.numpy as jnp  # type: ignore
 import numpy as np  # type: ignore
 import scipy.linalg  # type: ignore
-from jax.typing import ArrayLike  # type: ignore
-from numpy.typing import NDArray  # type: ignore
+from numpy.typing import ArrayLike, NDArray  # type: ignore
 
-Array: TypeAlias = jax.Array | NDArray
+Array: TypeAlias = NDArray
 
 
 def check_input(mat: Array):
@@ -82,11 +79,11 @@ def fit_coheritability(cov_G: ArrayLike, cov_P: ArrayLike) -> NDArray:
     weights : ndarray of shape (n_phenotypes, n_phenotypes)
         Weight matrix that defines the coheritable phenotypes.
     """
-    cov_G = jnp.asarray(cov_G)
-    cov_P = jnp.asarray(cov_P)
+    cov_G = np.asarray(cov_G)
+    cov_P = np.asarray(cov_P)
     check_inputs(cov_G, cov_P)
 
-    weights, _, _, _ = jnp.linalg.lstsq(cov_P, cov_G, rcond=None)
+    weights, _, _, _ = np.linalg.lstsq(cov_P, cov_G, rcond=None)
     weights = np.asarray(weights)
 
     # Normalize weights so that projections have unit variance
@@ -116,7 +113,7 @@ def fit_genetic_correlation(phenotype_idx: int, cov_G: ArrayLike) -> NDArray:
     weights : ndarray of shape (n_phenotypes,)
         Weight vector that defines the correlated phenotype.
     """
-    cov_G = jnp.asarray(cov_G)
+    cov_G = np.asarray(cov_G)
     check_input(cov_G)
 
     if cov_G.ndim != 2:
@@ -125,8 +122,8 @@ def fit_genetic_correlation(phenotype_idx: int, cov_G: ArrayLike) -> NDArray:
     if cov_G.shape[0] != cov_G.shape[1]:
         raise ValueError("Covariance matrix must be square")
 
-    v = jnp.delete(cov_G[phenotype_idx], phenotype_idx, 0)
-    G = jnp.delete(jnp.delete(cov_G, phenotype_idx, 0), phenotype_idx, 1)
+    v = np.delete(cov_G[phenotype_idx], phenotype_idx, 0)
+    G = np.delete(np.delete(cov_G, phenotype_idx, 0), phenotype_idx, 1)
 
     weights, _, _, _ = np.linalg.lstsq(G, v)
     return np.asarray(weights)
