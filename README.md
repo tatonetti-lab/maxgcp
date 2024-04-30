@@ -1,6 +1,7 @@
 # Maximum genetic component phenotyping
 
-[![Code style: black](https://img.shields.io/badge/code%20style-black-000000.svg)](https://github.com/psf/black)
+[![Ruff](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/astral-sh/ruff/main/assets/badge/v2.json)](https://github.com/astral-sh/ruff)
+[![Actions status](https://img.shields.io/github/actions/workflow/status/tatonetti-lab/maxgcp/test.yml?branch=main&label=actions)](https://github.com/tatonetti-lab/maxgcp/actions)
 
 `maxgcp` is a Python package that implements maximum genetic component phenotyping (MaxGCP), a method that optimizes a linear phenotype definition to maximize its heritability and genetic correlation with a trait of interest.
 In short, this method results in a phenotype definition that is, close to the genetic component of the trait of interest, on the individual level.
