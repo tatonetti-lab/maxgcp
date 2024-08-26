@@ -9,9 +9,13 @@ dependencies = [
     "numpy>=1.26.4",
     "pandas>=2.2.2",
     "scipy>=1.13.0",
+    "typer>=0.12.4",
+    "rich>=13.7.1",
+    "polars>=1.5.0",
+    "ldsc",
 ]
 readme = "README.md"
-requires-python = ">= 3.10"
+requires-python = ">= 3.11"
 classifiers = [
     "Development Status :: 3 - Alpha",
     "License :: OSI Approved :: MIT License",
@@ -24,6 +28,9 @@ classifiers = [
 
 [project.urls]
 Repository = "https://github.com/tatonetti-lab/maxgcp"
+
+[project.scripts]
+maxgcp = "maxgcp.cli:app"
 
 [build-system]
 requires = ["hatchling"]
@@ -40,3 +47,6 @@ allow-direct-references = true
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/maxgcp"]
+
+[tool.uv.sources]
+ldsc = { path = "../../Documents/git/ldsc" }
