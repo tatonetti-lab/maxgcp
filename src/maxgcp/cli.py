@@ -163,3 +163,152 @@ def ldsc_munge(
         ]
     )
     ldsc.scripts.munge_sumstats.munge_sumstats(args)
+
+
+def read_ldsc_gcov_output(output_path: Path) -> pd.DataFrame:
+    """Read the genetic covariance estimates from the LDSC output file."""
+    with open(output_path) as f:
+        lines = f.readlines()
+
+    files = None
+    heritabilities = list()
+    genetic_covariances = list()
+    state = None
+    for line in lines:
+        if state is None:
+            if line.startswith("--rg "):
+                files = line.replace("--rg ", "").replace(" \\", "").split(",")
+            elif line.startswith("Heritability of phenotype "):
+                state_str = line.replace("Heritability of phenotype ", "").split("/")[0]
+                state = int(state_str)
+            continue
+        if line.startswith("Total Observed scale h2: "):
+            h2_str = line.replace("Total Observed scale h2: ", "").split()[0]
+            h2 = float(h2_str)
+            heritabilities.append(h2)
+            assert len(heritabilities) == state, f"{len(heritabilities)} != {state}"
+            if state == 1:
+                genetic_covariances.append(h2)
+                state = None
+        elif line.startswith("Total Observed scale gencov: "):
+            gcov_str = line.replace("Total Observed scale gencov: ", "").split()[0]
+            genetic_covariances.append(float(gcov_str))
+            assert (
+                len(genetic_covariances) == state
+            ), f"{len(genetic_covariances)} != {state}"
+            state = None
+
+    if files is None:
+        raise ValueError("Could not find files in LDSC output")
+
+    # Remove file suffixes that were added during this process
+    files = [Path(f).with_suffix("").with_suffix("").name for f in files]
+    return (
+        pd.DataFrame(
+            {
+                "target": [files[0]] * len(heritabilities),
+                "feature": files,
+                "heritability": heritabilities,
+                "genetic_covariance": genetic_covariances,
+            }
+        )
+        .pivot(index="feature", columns="target", values="genetic_covariance")
+        .rename_axis(columns=None)
+    )
+
+
+@app.command(name="genetic-cov")
+def compute_genetic_covariance(
+    *,
+    gwas_paths: Annotated[
+        list[Path],
+        typer.Argument(
+            exists=True, help="Path to GWAS summary statistics", show_default=False
+        ),
+    ],
+    target: Annotated[
+        Path, typer.Option(exists=True, help="Target phenotype(s) for MaxGCP")
+    ],
+    tag_file: Annotated[
+        Path,
+        typer.Option("--tagfile", exists=True, help="Path to tag file"),
+    ],
+    output_file: Annotated[
+        Path,
+        typer.Option("--out", help="Path to output file", show_default=False),
+    ] = Path("maxgcp.tsv"),
+    snp_col: Annotated[str, typer.Option("--snp", help="Name of SNP column")] = "ID",
+    a1_col: Annotated[
+        str, typer.Option("--a1", help="Name of effect allele column")
+    ] = "A1",
+    a2_col: Annotated[
+        str, typer.Option("--a2", help="Name of non-effect allele column")
+    ] = "OMITTED",
+    sample_size_col: Annotated[
+        str, typer.Option("--sample-size", help="Name of sample size column")
+    ] = "OBS_CT",
+    p_col: Annotated[str, typer.Option("--p", help="Name of p-value column")] = "P",
+    signed_sumstat_col: Annotated[
+        str,
+        typer.Option(
+            "--signed-sumstat", help="Name of signed sumstat column (e.g. Z, OR)"
+        ),
+    ] = "T_STAT",
+    signed_sumstat_null: Annotated[
+        float,
+        typer.Option(
+            "--signed-sumstat-null", help="Null value for the signed sumstat column"
+        ),
+    ] = 0.0,
+) -> None:
+    if target not in gwas_paths:
+        raise ValueError(f"Target {target} not found in GWAS paths")
+
+    gwas_paths = [target] + [p for p in gwas_paths if p != target]
+
+    with tempfile.TemporaryDirectory() as tmpdir_name:
+        tmpdir = Path(tmpdir_name)
+
+        logger.info("Formatting sumstats for LDSC")
+        fmt_dir = tmpdir.joinpath("formatted")
+        fmt_dir.mkdir()
+        output_paths = list()
+        for gwas_path in track(
+            gwas_paths, description="Formatting sumstats...", total=len(gwas_paths)
+        ):
+            output_root = fmt_dir.joinpath(gwas_path.name)
+            output_path = fmt_dir.joinpath(gwas_path.name + ".sumstats.gz")
+            output_paths.append(output_path)
+            ldsc_munge(
+                gwas_path,
+                output_root,
+                snp_col=snp_col,
+                a1_col=a1_col,
+                a2_col=a2_col,
+                sample_size_col=sample_size_col,
+                p_col=p_col,
+                signed_sumstat_col=signed_sumstat_col,
+                signed_sumstat_null=signed_sumstat_null,
+            )
+
+        logger.info("Computing genetic covariances using LDSC")
+        logger.info(f"Got tag file: {tag_file}, is dir: {tag_file.is_dir()}")
+        tag_path = (
+            tag_file.as_posix() + "/" if tag_file.is_dir() else tag_file.as_posix()
+        )
+        temp_output_path = tmpdir.joinpath("ldsc_output.log")
+        args = ldsc.scripts.ldsc.parser.parse_args(
+            [
+                "--rg",
+                ",".join(p.as_posix() for p in output_paths),
+                "--ref-ld-chr",
+                tag_path,
+                "--w-ld-chr",
+                tag_path,
+                "--out",
+                temp_output_path.with_suffix("").as_posix(),
+            ]
+        )
+        ldsc.scripts.ldsc.main(args)
+        # Format the results into a table
+        read_ldsc_gcov_output(temp_output_path).to_csv(output_file, sep="\t")
