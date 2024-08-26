@@ -27,6 +27,12 @@ app = typer.Typer(
 )
 
 
+def remove_all_suffixes(path: Path) -> Path:
+    while path.suffixes:
+        path = path.with_suffix("")
+    return path
+
+
 @app.command(name="pheno-cov")
 def compute_phenotypic_covariance(
     phenotype_file: Annotated[
@@ -260,7 +266,11 @@ def compute_genetic_covariance(
             "--signed-sumstat-null", help="Null value for the signed sumstat column"
         ),
     ] = 0.0,
+    use_stem: Annotated[
+        bool, typer.Option("--use-stem", help="Use stem of GWAS file as phenotype name")
+    ] = False,
 ) -> None:
+    """Compute a genetic covariance vector (features x target) using LDSC."""
     if target not in gwas_paths:
         raise ValueError(f"Target {target} not found in GWAS paths")
 
@@ -311,4 +321,12 @@ def compute_genetic_covariance(
         )
         ldsc.scripts.ldsc.main(args)
         # Format the results into a table
-        read_ldsc_gcov_output(temp_output_path).to_csv(output_file, sep="\t")
+        result_df = read_ldsc_gcov_output(temp_output_path)
+
+    if use_stem:
+        result_df.index = pd.Index(
+            [remove_all_suffixes(Path(p)) for p in result_df.index], name="phenotype"
+        )
+        result_df.columns = [remove_all_suffixes(Path(p)) for p in result_df.columns]
+
+    result_df.to_csv(output_file, sep="\t")
