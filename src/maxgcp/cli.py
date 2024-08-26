@@ -66,7 +66,7 @@ def compute_phenotypic_covariance(
     can be specified one or more times like this: --person-id FID --person-id IID
     """
     add_intercept = not no_intercept
-    logger.info("Computing covariance...")
+    logger.info("Computing covariance")
     logger.debug(f"Got phenotype file: {phenotype_file}")
     logger.debug(f"Got output file: {output_file}")
     logger.debug(f"Got covariate file: {covariate_file}")
@@ -79,12 +79,16 @@ def compute_phenotypic_covariance(
         )
     sep = "," if phenotype_file.suffix == ".csv" else "\t"
     phenotype_df = pl.read_csv(phenotype_file, separator=sep)
+    logger.info(
+        f"Found {phenotype_df.shape[0]} samples, {phenotype_df.shape[1]} phenotypes"
+    )
     has_person_ids = person_id_col is not None and len(person_id_col) > 0
     if has_person_ids:
         phenotype_names = phenotype_df.drop(person_id_col).columns
     else:
         phenotype_names = phenotype_df.columns
     if covariate_file is not None:
+        logger.info("Residualizing covariates")
         sep = "," if covariate_file.suffix == ".csv" else "\t"
         covariate_df = pl.read_csv(covariate_file, separator="\t")
         if add_intercept:
@@ -108,6 +112,7 @@ def compute_phenotypic_covariance(
 
     index = pd.Index(phenotype_names, name="phenotype")
     covariance_df = pd.DataFrame(covariance, index=index, columns=index)
+    logger.info(f"Writing covariance to {output_file}")
     covariance_df.to_csv(output_file, sep="\t")
 
 
