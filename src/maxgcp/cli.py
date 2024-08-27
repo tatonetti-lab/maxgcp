@@ -12,6 +12,7 @@ import typer
 from rich.logging import RichHandler
 from rich.progress import track
 
+from maxgcp.estimators import fit_coheritability
 
 logging.basicConfig(
     level=logging.INFO,
@@ -335,3 +336,70 @@ def compute_genetic_covariance(
         result_df.columns = [remove_all_suffixes(Path(p)) for p in result_df.columns]
 
     result_df.to_csv(output_file, sep="\t")
+
+
+@app.command(name="fit")
+def fit_command(
+    genetic_covariance_file: Annotated[
+        Path,
+        typer.Argument(
+            exists=True, help="Path to genetic covariance file", show_default=False
+        ),
+    ],
+    phenotypic_covariance_file: Annotated[
+        Path,
+        typer.Argument(
+            exists=True, help="Path to phenotypic covariance file", show_default=False
+        ),
+    ],
+    target: Annotated[str, typer.Option(help="Target phenotype for MaxGCP")],
+    output_file: Annotated[
+        Path,
+        typer.Option("--out", help="Path to output file", show_default=False),
+    ] = Path("maxgcp_weights.tsv"),
+    no_include_target: Annotated[
+        bool, typer.Option("--no-include-target", help="Do not include target in fit")
+    ] = False,
+):
+    """Fit a MaxGCP phenotype to a target phenotype."""
+    include_target = not no_include_target
+    logger.info("Fitting a MaxGCP phenotype")
+    sep = "," if phenotypic_covariance_file.suffix == ".csv" else "\t"
+    genetic_covariance_df = pd.read_csv(genetic_covariance_file, sep=sep, index_col=0)
+    sep = "," if phenotypic_covariance_file.suffix == ".csv" else "\t"
+    phenotypic_covariance_df = pd.read_csv(
+        phenotypic_covariance_file, sep=sep, index_col=0
+    )
+    if phenotypic_covariance_df.shape[0] != phenotypic_covariance_df.shape[1]:
+        raise ValueError("Phenotypic covariance matrix must be square")
+    if (
+        phenotypic_covariance_df.index.values.tolist()
+        != phenotypic_covariance_df.columns.values.tolist()
+    ):
+        raise ValueError("Phenotypic covariance matrix must be symmetric")
+
+    if target not in genetic_covariance_df.columns:
+        raise ValueError(f"Target {target} not found in genetic covariance file")
+    if include_target and (
+        target not in phenotypic_covariance_df.columns
+        or target not in phenotypic_covariance_df.index
+    ):
+        raise ValueError(f"Target {target} not found in phenotypic covariance file")
+
+    if include_target:
+        features = phenotypic_covariance_df.index.tolist()
+    else:
+        original_features = phenotypic_covariance_df.index
+        features = original_features.drop(target).tolist()
+
+    gcov_vec = genetic_covariance_df.loc[features, target].values
+    pcov_mat = phenotypic_covariance_df.loc[features, features].values
+    logger.info(f"Using {len(features)} features")
+    maxgcp_weights = fit_coheritability(gcov_vec, pcov_mat)
+    maxgcp_weights_df = pd.DataFrame(
+        maxgcp_weights,
+        index=pd.Index(features, name="feature"),
+        columns=pd.Index([target], name="target"),
+    )
+    logger.info(f"Writing weights to {output_file}")
+    maxgcp_weights_df.to_csv(output_file, sep="\t")
