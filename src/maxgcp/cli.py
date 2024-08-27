@@ -68,11 +68,6 @@ def compute_phenotypic_covariance(
     """
     add_intercept = not no_intercept
     logger.info("Computing covariance")
-    logger.debug(f"Got phenotype file: {phenotype_file}")
-    logger.debug(f"Got output file: {output_file}")
-    logger.debug(f"Got covariate file: {covariate_file}")
-    logger.debug(f"Got person ID column(s): {person_id_col}")
-    logger.debug(f"Got add intercept: {add_intercept}")
     if covariate_file is None and add_intercept:
         logger.warning(
             "You have specified to add an intercept to the covariates, but no "
