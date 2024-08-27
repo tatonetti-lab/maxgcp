@@ -21,6 +21,6 @@ jobs:
     - run: source $HOME/.cargo/env
     - run: uv python install ${{ matrix.python-version }}
     - run: uv python pin ${{ matrix.python-version }}
-    - run: uv pip install --system ruff pytest
+    - run: uv pip install ruff pytest
     - run: uv run ruff check
     - run: uv run pytest -v
