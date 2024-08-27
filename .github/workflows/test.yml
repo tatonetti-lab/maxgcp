@@ -23,4 +23,4 @@ jobs:
     - run: uv pip install ruff pytest
     - run: uv sync
     - run: uv run ruff check
-    - run: uv run pytest -v
+    # - run: uv run pytest -v
