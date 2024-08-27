@@ -49,6 +49,12 @@ allow-direct-references = true
 [tool.hatch.build.targets.wheel]
 packages = ["src/maxgcp"]
 
+[tool.uv]
+dev-dependencies = [
+    "ruff>=0.6.2",
+    "pytest>=8.3.2",
+]
+
 [tool.uv.sources]
 igwas = { git = "https://github.com/tatonetti-lab/indirect-gwas" }
 ldsc = { git = "https://github.com/zietzm/ldsc", branch = "py3" }
