@@ -592,6 +592,9 @@ def run_command(
             maxgcp_weights_path.rename(
                 output_file.parent.joinpath("maxgcp_weights.tsv")
             )
+            # Create empty files to avoid errors when cleaning up
+            covariance_path.touch()
+            maxgcp_weights_path.touch()
         else:
             logger.info("Cleaning up intermediate files")
     logger.info("Done")
