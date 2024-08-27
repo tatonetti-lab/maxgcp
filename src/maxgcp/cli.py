@@ -338,15 +338,11 @@ def compute_genetic_covariance(
 def fit_command(
     genetic_covariance_file: Annotated[
         Path,
-        typer.Argument(
-            exists=True, help="Path to genetic covariance file", show_default=False
-        ),
+        typer.Option("--gcov", exists=True, help="Path to genetic covariance file"),
     ],
     phenotypic_covariance_file: Annotated[
         Path,
-        typer.Argument(
-            exists=True, help="Path to phenotypic covariance file", show_default=False
-        ),
+        typer.Option("--pcov", exists=True, help="Path to phenotypic covariance file"),
     ],
     target: Annotated[str, typer.Option(help="Target phenotype for MaxGCP")],
     output_file: Annotated[
@@ -410,15 +406,11 @@ def run_indirect_gwas(
     ],
     projection_coefficient_file: Annotated[
         Path,
-        typer.Argument(
-            exists=True, help="Path to projection coefficient file", show_default=False
-        ),
+        typer.Option("--proj", exists=True, help="Path to projection coefficient file"),
     ],
     phenotype_covariance_file: Annotated[
         Path,
-        typer.Argument(
-            exists=True, help="Path to phenotypic covariance file", show_default=False
-        ),
+        typer.Option("--pcov", exists=True, help="Path to phenotypic covariance file"),
     ],
     n_covar: Annotated[
         int,
@@ -426,7 +418,7 @@ def run_indirect_gwas(
     ],
     output_file: Annotated[
         Path,
-        typer.Argument(exists=False, help="Path to output file", show_default=False),
+        typer.Option("--out", help="Path to output file"),
     ],
     snp_col: Annotated[str, typer.Option("--snp", help="Name of SNP column")] = "ID",
     beta_col: Annotated[
@@ -485,21 +477,14 @@ def run_command(
     ],
     phenotype_covariance_file: Annotated[
         Path,
-        typer.Argument(
-            exists=True, help="Path to phenotypic covariance file", show_default=False
-        ),
+        typer.Option("--pcov", exists=True, help="Path to phenotypic covariance file"),
     ],
     tag_file: Annotated[
         Path,
         typer.Option("--tagfile", exists=True, help="Path to tag file"),
     ],
     output_file: Annotated[
-        Path,
-        typer.Argument(
-            exists=False,
-            help="Path to output GWAS summary statistics file",
-            show_default=False,
-        ),
+        Path, typer.Option("--out", help="Path to output GWAS summary statistics file")
     ],
     target: Annotated[
         Path, typer.Option(exists=True, help="Target phenotype for MaxGCP")
