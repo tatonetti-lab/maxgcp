@@ -553,11 +553,10 @@ def run_command(
 ):
     """Run MaxGCP on a set of GWAS summary statistics."""
     logger.info("Computing genetic covariances using LDSC")
-    with tempfile.NamedTemporaryFile(
-        suffix=".tsv"
-    ) as covariance_file, tempfile.NamedTemporaryFile(
-        suffix=".tsv"
-    ) as maxgcp_weights_file:
+    with (
+        tempfile.NamedTemporaryFile(suffix=".tsv") as covariance_file,
+        tempfile.NamedTemporaryFile(suffix=".tsv") as maxgcp_weights_file,
+    ):
         covariance_path = Path(covariance_file.name)
         compute_genetic_covariance(
             gwas_paths=gwas_paths,
