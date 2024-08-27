@@ -20,6 +20,7 @@ jobs:
     - run: curl -LsSf https://astral.sh/uv/install.sh | sh
     - run: source $HOME/.cargo/env
     - run: uv venv
+    - run: . .venv/bin/activate
     - run: uv python pin ${{ matrix.python-version }}
     - run: uv pip install ruff pytest
     - run: uv run ruff check
