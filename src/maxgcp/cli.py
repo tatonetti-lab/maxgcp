@@ -244,7 +244,7 @@ def compute_genetic_covariance(
     output_file: Annotated[
         Path,
         typer.Option("--out", help="Path to output file", show_default=False),
-    ] = Path("maxgcp.tsv"),
+    ] = Path("maxgcp_genetic_covariance.tsv"),
     snp_col: Annotated[str, typer.Option("--snp", help="Name of SNP column")] = "ID",
     a1_col: Annotated[
         str, typer.Option("--a1", help="Name of effect allele column")
@@ -269,8 +269,8 @@ def compute_genetic_covariance(
         ),
     ] = 0.0,
     use_stem: Annotated[
-        bool, typer.Option("--use-stem", help="Use stem of GWAS file as phenotype name")
-    ] = False,
+        bool, typer.Option(help="Use stem of GWAS file as phenotype name")
+    ] = True,
 ) -> None:
     """Compute a genetic covariance vector (features x target) using LDSC."""
     if target not in gwas_paths:
@@ -353,13 +353,12 @@ def fit_command(
         Path,
         typer.Option("--out", help="Path to output file", show_default=False),
     ] = Path("maxgcp_weights.tsv"),
-    no_include_target: Annotated[
-        bool, typer.Option("--no-include-target", help="Do not include target in fit")
-    ] = False,
+    include_target: Annotated[
+        bool, typer.Option(help="Include target phenotype in fit")
+    ] = True,
 ):
     """Fit a MaxGCP phenotype to a target phenotype."""
-    include_target = not no_include_target
-    logger.info("Fitting a MaxGCP phenotype")
+    logger.info("Fitting MaxGCP phenotype")
     sep = "," if phenotypic_covariance_file.suffix == ".csv" else "\t"
     genetic_covariance_df = pd.read_csv(genetic_covariance_file, sep=sep, index_col=0)
     sep = "," if phenotypic_covariance_file.suffix == ".csv" else "\t"
@@ -474,3 +473,141 @@ def run_indirect_gwas(
         compress=compress,
         quiet=True,
     )
+
+
+@app.command(name="run")
+def run_command(
+    gwas_paths: Annotated[
+        list[Path],
+        typer.Argument(
+            exists=True, help="Path to GWAS summary statistics", show_default=False
+        ),
+    ],
+    phenotype_covariance_file: Annotated[
+        Path,
+        typer.Argument(
+            exists=True, help="Path to phenotypic covariance file", show_default=False
+        ),
+    ],
+    tag_file: Annotated[
+        Path,
+        typer.Option("--tagfile", exists=True, help="Path to tag file"),
+    ],
+    output_file: Annotated[
+        Path,
+        typer.Argument(
+            exists=False,
+            help="Path to output GWAS summary statistics file",
+            show_default=False,
+        ),
+    ],
+    target: Annotated[
+        Path, typer.Option(exists=True, help="Target phenotype for MaxGCP")
+    ],
+    snp_col: Annotated[str, typer.Option("--snp", help="Name of SNP column")] = "ID",
+    beta_col: Annotated[
+        str, typer.Option("--beta", help="Name of beta column")
+    ] = "BETA",
+    std_error_col: Annotated[
+        str, typer.Option("--std-error", help="Name of standard error column")
+    ] = "SE",
+    a1_col: Annotated[
+        str, typer.Option("--a1", help="Name of effect allele column")
+    ] = "A1",
+    a2_col: Annotated[
+        str, typer.Option("--a2", help="Name of non-effect allele column")
+    ] = "OMITTED",
+    sample_size_col: Annotated[
+        str, typer.Option("--sample-size", help="Name of sample size column")
+    ] = "OBS_CT",
+    p_col: Annotated[str, typer.Option("--p", help="Name of p-value column")] = "P",
+    signed_sumstat_col: Annotated[
+        str,
+        typer.Option(
+            "--signed-sumstat", help="Name of signed sumstat column (e.g. Z, OR)"
+        ),
+    ] = "T_STAT",
+    signed_sumstat_null: Annotated[
+        float,
+        typer.Option(
+            "--signed-sumstat-null", help="Null value for the signed sumstat column"
+        ),
+    ] = 0.0,
+    use_stem: Annotated[
+        bool, typer.Option(help="Use stem of GWAS file as phenotype name")
+    ] = True,
+    n_covar: Annotated[
+        int, typer.Option("--n-covar", help="Number of covariates to use")
+    ] = 0,
+    compress_output: Annotated[bool, typer.Option(help="Compress output file")] = True,
+    chunksize: Annotated[
+        int, typer.Option("--chunksize", help="Chunksize for IGWAS")
+    ] = 100_000,
+    n_threads: Annotated[
+        int, typer.Option("--n-threads", help="Number of threads for IGWAS")
+    ] = 1,
+    include_target: Annotated[
+        bool, typer.Option(help="Include target phenotype in fit")
+    ] = True,
+    clean_up: Annotated[bool, typer.Option(help="Clean up intermediate files")] = True,
+):
+    """Run MaxGCP on a set of GWAS summary statistics."""
+    logger.info("Computing genetic covariances using LDSC")
+    with tempfile.NamedTemporaryFile(
+        suffix=".tsv"
+    ) as covariance_file, tempfile.NamedTemporaryFile(
+        suffix=".tsv"
+    ) as maxgcp_weights_file:
+        covariance_path = Path(covariance_file.name)
+        compute_genetic_covariance(
+            gwas_paths=gwas_paths,
+            target=target,
+            tag_file=tag_file,
+            output_file=covariance_path,
+            snp_col=snp_col,
+            a1_col=a1_col,
+            a2_col=a2_col,
+            sample_size_col=sample_size_col,
+            p_col=p_col,
+            signed_sumstat_col=signed_sumstat_col,
+            signed_sumstat_null=signed_sumstat_null,
+            use_stem=use_stem,
+        )
+        maxgcp_weights_path = Path(maxgcp_weights_file.name)
+        fit_command(
+            genetic_covariance_file=covariance_path,
+            phenotypic_covariance_file=phenotype_covariance_file,
+            target=remove_all_suffixes(target).stem,
+            output_file=maxgcp_weights_path,
+            include_target=include_target,
+        )
+        logger.info("Computing GWAS summary statistics for the MaxGCP phenotype")
+        run_indirect_gwas(
+            gwas_paths=gwas_paths,
+            projection_coefficient_file=maxgcp_weights_path,
+            phenotype_covariance_file=phenotype_covariance_file,
+            n_covar=n_covar,
+            output_file=output_file,
+            snp_col=snp_col,
+            beta_col=beta_col,
+            std_error_col=std_error_col,
+            sample_size_col=sample_size_col,
+            compress=compress_output,
+            use_stem=use_stem,
+            chunksize=chunksize,
+            n_threads=n_threads,
+        )
+        if not clean_up:
+            logger.info(
+                "Keeping intermediate files ['maxgcp_genetic_covariance.tsv', "
+                "'maxgcp_weights.tsv']"
+            )
+            covariance_path.rename(
+                output_file.parent.joinpath("maxgcp_genetic_covariance.tsv")
+            )
+            maxgcp_weights_path.rename(
+                output_file.parent.joinpath("maxgcp_weights.tsv")
+            )
+        else:
+            logger.info("Cleaning up intermediate files")
+    logger.info("Done")
