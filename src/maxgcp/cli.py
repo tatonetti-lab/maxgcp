@@ -9,6 +9,7 @@ import numpy as np
 import pandas as pd
 import polars as pl
 import typer
+from igwas.igwas import igwas_files
 from rich.logging import RichHandler
 from rich.progress import track
 
@@ -398,3 +399,78 @@ def fit_command(
     )
     logger.info(f"Writing weights to {output_file}")
     maxgcp_weights_df.to_csv(output_file, sep="\t")
+
+
+@app.command(name="indirect-gwas")
+def run_indirect_gwas(
+    gwas_paths: Annotated[
+        list[Path],
+        typer.Argument(
+            exists=True, help="Path to GWAS summary statistics", show_default=False
+        ),
+    ],
+    projection_coefficient_file: Annotated[
+        Path,
+        typer.Argument(
+            exists=True, help="Path to projection coefficient file", show_default=False
+        ),
+    ],
+    phenotype_covariance_file: Annotated[
+        Path,
+        typer.Argument(
+            exists=True, help="Path to phenotypic covariance file", show_default=False
+        ),
+    ],
+    n_covar: Annotated[
+        int,
+        typer.Option("--n-covar", help="Number of covariates to use"),
+    ],
+    output_file: Annotated[
+        Path,
+        typer.Argument(exists=False, help="Path to output file", show_default=False),
+    ],
+    snp_col: Annotated[str, typer.Option("--snp", help="Name of SNP column")] = "ID",
+    beta_col: Annotated[
+        str, typer.Option("--beta", help="Name of beta column")
+    ] = "BETA",
+    std_error_col: Annotated[
+        str, typer.Option("--std-error", help="Name of standard error column")
+    ] = "SE",
+    sample_size_col: Annotated[
+        str, typer.Option("--sample-size", help="Name of sample size column")
+    ] = "OBS_CT",
+    compress: Annotated[
+        bool, typer.Option("--compress", help="Compress output file")
+    ] = True,
+    use_stem: Annotated[
+        bool, typer.Option(help="Use stem of GWAS file as phenotype name")
+    ] = True,
+    chunksize: Annotated[
+        int, typer.Option("--chunksize", help="Chunksize for IGWAS")
+    ] = 100_000,
+    n_threads: Annotated[
+        int, typer.Option("--n-threads", help="Number of threads for IGWAS")
+    ] = 1,
+):
+    """Compute GWAS summary statistics for a projected phenotype."""
+    if not use_stem:
+        raise NotImplementedError(
+            "Indirect GWAS only currently supports GWAS files where the file "
+            "stem represents the phenotype"
+        )
+    igwas_files(
+        projection_matrix_path=projection_coefficient_file.as_posix(),
+        covariance_matrix_path=phenotype_covariance_file.as_posix(),
+        gwas_result_paths=[p.as_posix() for p in gwas_paths],
+        output_file_path=output_file.as_posix(),
+        num_covar=n_covar,
+        chunksize=chunksize,
+        variant_id=snp_col,
+        beta=beta_col,
+        std_error=std_error_col,
+        sample_size=sample_size_col,
+        num_threads=n_threads,
+        capacity=n_threads,
+        compress=compress,
+        quiet=True,
+    )

@@ -110,9 +110,19 @@ wheels = [
 ]
 
 [[package]]
+name = "igwas"
+version = "0.1.0"
+source = { git = "https://github.com/tatonetti-lab/indirect-gwas#3b85a937d0b13494378eecab4f25f3ffc1f787fd" }
+dependencies = [
+    { name = "numpy" },
+    { name = "pandas" },
+    { name = "zstandard" },
+]
+
+[[package]]
 name = "ldsc"
 version = "0.1.0"
-source = { directory = "../../Documents/git/ldsc" }
+source = { git = "https://github.com/zietzm/ldsc?branch=py3#a6305d51deea71680de764288c977e5e648aca10" }
 dependencies = [
     { name = "bitarray" },
     { name = "numpy" },
@@ -122,20 +132,6 @@ dependencies = [
     { name = "scipy" },
     { name = "zstandard" },
 ]
-
-[package.metadata]
-requires-dist = [
-    { name = "bitarray", specifier = ">=2.9.2" },
-    { name = "numpy", specifier = ">=2.1.0" },
-    { name = "pandas", specifier = ">=2.2.2" },
-    { name = "pybedtools", specifier = ">=0.10.0" },
-    { name = "pyzstd", specifier = ">=0.16.1" },
-    { name = "scipy", specifier = ">=1.14.1" },
-    { name = "zstandard", specifier = ">=0.23.0" },
-]
-
-[package.metadata.requires-dev]
-dev = [{ name = "pytest", specifier = ">=8.3.2" }]
 
 [[package]]
 name = "markdown-it-py"
@@ -154,6 +150,7 @@ name = "maxgcp"
 version = "0.1.2"
 source = { editable = "." }
 dependencies = [
+    { name = "igwas" },
     { name = "ldsc" },
     { name = "numpy" },
     { name = "pandas" },
@@ -165,7 +162,8 @@ dependencies = [
 
 [package.metadata]
 requires-dist = [
-    { name = "ldsc", directory = "../../Documents/git/ldsc" },
+    { name = "igwas", git = "https://github.com/tatonetti-lab/indirect-gwas" },
+    { name = "ldsc", git = "https://github.com/zietzm/ldsc?branch=py3" },
     { name = "numpy", specifier = ">=1.26.4" },
     { name = "pandas", specifier = ">=2.2.2" },
     { name = "polars", specifier = ">=1.5.0" },

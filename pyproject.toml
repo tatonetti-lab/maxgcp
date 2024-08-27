@@ -13,6 +13,7 @@ dependencies = [
     "rich>=13.7.1",
     "polars>=1.5.0",
     "ldsc",
+    "igwas",
 ]
 readme = "README.md"
 requires-python = ">= 3.11"
@@ -49,4 +50,5 @@ allow-direct-references = true
 packages = ["src/maxgcp"]
 
 [tool.uv.sources]
-ldsc = { path = "../../Documents/git/ldsc" }
+ldsc = { git = "https://github.com/zietzm/ldsc", branch = "py3" }
+igwas = { git = "https://github.com/tatonetti-lab/indirect-gwas" }
