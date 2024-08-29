@@ -133,14 +133,14 @@ def compute_phenotypic_variances(
         bool, typer.Option("--no-intercept", help="Do not add intercept to covariates")
     ] = False,
 ) -> None:
-    """Compute phenotypic covariance matrix from a phenotype file.
+    """Compute phenotypic variances from a phenotype file.
 
     Covariates are optional. When provided, the covariates will be residualized
-    out and the resulting file will contain the partial covariance matrix.
+    out and the resulting file will contain the partial variances.
 
     Person ID columns will be used to join the phenotype and covariate files and
-    will be ignored in the computation of the covariance matrix. Multiple ID
-    can be specified one or more times like this: --person-id FID --person-id IID
+    will be ignored in the computation of the variances. Multiple ID can be
+    specified one or more times like this: --person-id FID --person-id IID
     """
     add_intercept = not no_intercept
     logger.info("Computing covariance")
@@ -242,7 +242,7 @@ def read_ldsc_gcov_output(
     )
 
 
-@app.command(name="gcov")
+@app.command(name="gcov-matrix")
 def compute_genetic_covariance(
     *,
     gwas_paths: Annotated[
@@ -304,10 +304,10 @@ def compute_genetic_covariance(
         int, typer.Option("--n-threads", help="Number of threads for LDSC")
     ] = 1,
 ) -> None:
-    """Compute genetic covariances (features x targets) using LDSC."""
+    """Compute a genetic covariance matrix (features x targets) using LDSC."""
     sep = "," if target_phenotypic_variance_file.suffix == ".csv" else "\t"
     name_to_pvar = (
-        pd.read_csv(target_phenotypic_variance_file, sep=sep, index_col=0)
+        pd.read_csv(target_phenotypic_variance_file, sep=sep, index_col=0, header=None)
         .iloc[:, 0]
         .to_dict()
     )
@@ -495,7 +495,7 @@ def fit_command(
         bool, typer.Option(help="Include target phenotype in fit")
     ] = True,
 ):
-    """Fit a MaxGCP phenotype using existing genetic and phenotypic covariances."""
+    """Fit MaxGCP using existing genetic and phenotypic covariances."""
     logger.info("Fitting MaxGCP phenotype")
     sep = "," if genetic_covariance_file.suffix == ".csv" else "\t"
     genetic_covariance_df = pd.read_csv(genetic_covariance_file, sep=sep, index_col=0)
@@ -591,6 +591,10 @@ def run_indirect_gwas(
             "Indirect GWAS only currently supports GWAS files where the file "
             "stem represents the phenotype"
         )
+    projections = pd.read_csv(
+        projection_coefficient_file, sep="\t", index_col=0, nrows=0
+    ).columns.tolist()
+    write_projection = len(projections) > 1
     igwas_files(
         projection_matrix_path=projection_coefficient_file.as_posix(),
         covariance_matrix_path=phenotype_covariance_file.as_posix(),
@@ -606,6 +610,7 @@ def run_indirect_gwas(
         capacity=n_threads,
         compress=compress,
         quiet=True,
+        write_phenotype_id=write_projection,
     )
 
 
