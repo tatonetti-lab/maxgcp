@@ -13,6 +13,8 @@ from igwas.igwas import igwas_files
 from rich.logging import RichHandler
 from rich.progress import track
 
+from maxgcp.cli.ldsc import app as ldsc_app
+from maxgcp.cli.ldsc import ldsc_munge, ldsc_rg
 from maxgcp.estimators import fit_coheritability
 
 logging.basicConfig(
@@ -27,6 +29,7 @@ logger = logging.getLogger("rich")
 app = typer.Typer(
     add_completion=False, context_settings={"help_option_names": ["-h", "--help"]}
 )
+app.add_typer(ldsc_app, name="ldsc", help="LDSC commands")
 
 
 def remove_all_suffixes(path: Path) -> Path:
@@ -35,7 +38,7 @@ def remove_all_suffixes(path: Path) -> Path:
     return path
 
 
-@app.command(name="pheno-cov")
+@app.command(name="pcov")
 def compute_phenotypic_covariance(
     phenotype_file: Annotated[
         Path,
@@ -113,66 +116,6 @@ def compute_phenotypic_covariance(
     covariance_df.to_csv(output_file, sep="\t")
 
 
-@app.command(name="ldsc-munge")
-def ldsc_munge(
-    gwas_path: Annotated[
-        Path,
-        typer.Argument(
-            exists=True, help="Path to GWAS summary statistics", show_default=False
-        ),
-    ],
-    output_file: Annotated[
-        Path,
-        typer.Option("--out", help="Path to output file", show_default=False),
-    ],
-    snp_col: Annotated[str, typer.Option("--snp", help="Name of SNP column")] = "ID",
-    a1_col: Annotated[
-        str, typer.Option("--a1", help="Name of effect allele column")
-    ] = "A1",
-    a2_col: Annotated[
-        str, typer.Option("--a2", help="Name of non-effect allele column")
-    ] = "OMITTED",
-    sample_size_col: Annotated[
-        str, typer.Option("--sample-size", help="Name of sample size column")
-    ] = "OBS_CT",
-    p_col: Annotated[str, typer.Option("--p", help="Name of p-value column")] = "P",
-    signed_sumstat_col: Annotated[
-        str,
-        typer.Option(
-            "--signed-sumstat", help="Name of signed sumstat column (e.g. Z, OR)"
-        ),
-    ] = "T_STAT",
-    signed_sumstat_null: Annotated[
-        float,
-        typer.Option(
-            "--signed-sumstat-null", help="Null value for the signed sumstat column"
-        ),
-    ] = 0.0,
-) -> None:
-    """Process a GWAS summary statistics file using LDSC."""
-    args = ldsc.scripts.munge_sumstats.parser.parse_args(
-        [
-            "--sumstats",
-            gwas_path.as_posix(),
-            "--out",
-            output_file.as_posix(),
-            "--snp",
-            snp_col,
-            "--a1",
-            a1_col,
-            "--a2",
-            a2_col,
-            "--N-col",
-            sample_size_col,
-            "--p",
-            p_col,
-            "--signed-sumstats",
-            f"{signed_sumstat_col},{signed_sumstat_null}",
-        ]
-    )
-    ldsc.scripts.munge_sumstats.munge_sumstats(args)
-
-
 def read_ldsc_gcov_output(
     output_path: Path, target_phenotypic_variance: float
 ) -> pd.DataFrame:
@@ -227,7 +170,7 @@ def read_ldsc_gcov_output(
     )
 
 
-@app.command(name="genetic-cov")
+@app.command(name="gcov")
 def compute_genetic_covariance(
     *,
     gwas_paths: Annotated[
@@ -318,19 +261,11 @@ def compute_genetic_covariance(
             tag_file.as_posix() + "/" if tag_file.is_dir() else tag_file.as_posix()
         )
         temp_output_path = tmpdir.joinpath("ldsc_output.log")
-        args = ldsc.scripts.ldsc.parser.parse_args(
-            [
-                "--rg",
-                ",".join(p.as_posix() for p in output_paths),
-                "--ref-ld-chr",
-                tag_path,
-                "--w-ld-chr",
-                tag_path,
-                "--out",
-                temp_output_path.with_suffix("").as_posix(),
-            ]
+        ldsc_rg(
+            output_paths,
+            tag_path,
+            temp_output_path.with_suffix(""),
         )
-        ldsc.scripts.ldsc.main(args)
         # Format the results into a table
         result_df = read_ldsc_gcov_output(temp_output_path, target_phenotypic_variance)
 
@@ -343,7 +278,7 @@ def compute_genetic_covariance(
     result_df.to_csv(output_file, sep="\t")
 
 
-@app.command(name="fit")
+@app.command(name="fit-to-gcov")
 def fit_command(
     genetic_covariance_file: Annotated[
         Path,
@@ -362,7 +297,7 @@ def fit_command(
         bool, typer.Option(help="Include target phenotype in fit")
     ] = True,
 ):
-    """Fit a MaxGCP phenotype to a target phenotype."""
+    """Fit a MaxGCP phenotype using existing genetic and phenotypic covariances."""
     logger.info("Fitting MaxGCP phenotype")
     sep = "," if genetic_covariance_file.suffix == ".csv" else "\t"
     genetic_covariance_df = pd.read_csv(genetic_covariance_file, sep=sep, index_col=0)
@@ -405,7 +340,7 @@ def fit_command(
     maxgcp_weights_df.to_csv(output_file, sep="\t")
 
 
-@app.command(name="indirect-gwas")
+@app.command(name="igwas")
 def run_indirect_gwas(
     gwas_paths: Annotated[
         list[Path],

@@ -31,7 +31,7 @@ classifiers = [
 Repository = "https://github.com/tatonetti-lab/maxgcp"
 
 [project.scripts]
-maxgcp = "maxgcp.cli:app"
+maxgcp = "maxgcp.cli.main:app"
 
 [build-system]
 requires = ["hatchling"]
