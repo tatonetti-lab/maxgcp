@@ -10,6 +10,7 @@ import typer
 from igwas.igwas import igwas_files
 from rich.logging import RichHandler
 
+from maxgcp.cli.compare import app as compare_app
 from maxgcp.cli.ldsc import app as ldsc_app
 from maxgcp.cli.ldsc import ldsc_rg
 from maxgcp.cli.utils import munge_parallel, remove_all_suffixes, rg_parallel
@@ -28,6 +29,7 @@ app = typer.Typer(
     add_completion=False, context_settings={"help_option_names": ["-h", "--help"]}
 )
 app.add_typer(ldsc_app, name="ldsc", help="LDSC commands")
+app.add_typer(compare_app, name="compare", help="Compare methods")
 
 
 @app.command(name="pcov")
