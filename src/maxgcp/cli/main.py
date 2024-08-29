@@ -503,14 +503,11 @@ def fit_command(
     phenotypic_covariance_df = pd.read_csv(
         phenotypic_covariance_file, sep=sep, index_col=0
     )
-    if phenotypic_covariance_df.shape[0] != phenotypic_covariance_df.shape[1]:
-        raise ValueError("Phenotypic covariance matrix must be square")
     if (
         phenotypic_covariance_df.index.values.tolist()
         != phenotypic_covariance_df.columns.values.tolist()
     ):
         raise ValueError("Phenotypic covariance matrix must be symmetric")
-
     if target not in genetic_covariance_df.columns:
         raise ValueError(f"Target {target} not found in genetic covariance file")
     if include_target and (
