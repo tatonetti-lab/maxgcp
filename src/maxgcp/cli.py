@@ -364,7 +364,7 @@ def fit_command(
 ):
     """Fit a MaxGCP phenotype to a target phenotype."""
     logger.info("Fitting MaxGCP phenotype")
-    sep = "," if phenotypic_covariance_file.suffix == ".csv" else "\t"
+    sep = "," if genetic_covariance_file.suffix == ".csv" else "\t"
     genetic_covariance_df = pd.read_csv(genetic_covariance_file, sep=sep, index_col=0)
     sep = "," if phenotypic_covariance_file.suffix == ".csv" else "\t"
     phenotypic_covariance_df = pd.read_csv(
