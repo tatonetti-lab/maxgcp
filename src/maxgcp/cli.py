@@ -173,7 +173,9 @@ def ldsc_munge(
     ldsc.scripts.munge_sumstats.munge_sumstats(args)
 
 
-def read_ldsc_gcov_output(output_path: Path) -> pd.DataFrame:
+def read_ldsc_gcov_output(
+    output_path: Path, target_phenotypic_variance: float
+) -> pd.DataFrame:
     """Read the genetic covariance estimates from the LDSC output file."""
     with open(output_path) as f:
         lines = f.readlines()
@@ -196,7 +198,7 @@ def read_ldsc_gcov_output(output_path: Path) -> pd.DataFrame:
             heritabilities.append(h2)
             assert len(heritabilities) == state, f"{len(heritabilities)} != {state}"
             if state == 1:
-                genetic_covariances.append(h2)
+                genetic_covariances.append(h2 * target_phenotypic_variance)
                 state = None
         elif line.startswith("Total Observed scale gencov: "):
             gcov_str = line.replace("Total Observed scale gencov: ", "").split()[0]
@@ -236,6 +238,13 @@ def compute_genetic_covariance(
     ],
     target: Annotated[
         Path, typer.Option(exists=True, help="Target phenotype(s) for MaxGCP")
+    ],
+    target_phenotypic_variance: Annotated[
+        float,
+        typer.Option(
+            "--target-phenotypic-variance",
+            help="Variance of the target phenotype",
+        ),
     ],
     tag_file: Annotated[
         Path,
@@ -323,7 +332,7 @@ def compute_genetic_covariance(
         )
         ldsc.scripts.ldsc.main(args)
         # Format the results into a table
-        result_df = read_ldsc_gcov_output(temp_output_path)
+        result_df = read_ldsc_gcov_output(temp_output_path, target_phenotypic_variance)
 
     if use_stem:
         result_df.index = pd.Index(
@@ -538,6 +547,14 @@ def run_command(
 ):
     """Run MaxGCP on a set of GWAS summary statistics."""
     logger.info("Computing genetic covariances using LDSC")
+    sep = "," if phenotype_covariance_file.suffix == ".csv" else "\t"
+    phenotypic_covariance_df = pd.read_csv(
+        phenotype_covariance_file, sep=sep, index_col=0
+    )
+    target_name = remove_all_suffixes(target).stem
+    target_phenotypic_variance = phenotypic_covariance_df.loc[
+        target_name, target_name
+    ].item()
     with (
         tempfile.NamedTemporaryFile(suffix=".tsv") as covariance_file,
         tempfile.NamedTemporaryFile(suffix=".tsv") as maxgcp_weights_file,
@@ -546,6 +563,7 @@ def run_command(
         compute_genetic_covariance(
             gwas_paths=gwas_paths,
             target=target,
+            target_phenotypic_variance=target_phenotypic_variance,
             tag_file=tag_file,
             output_file=covariance_path,
             snp_col=snp_col,
@@ -561,7 +579,7 @@ def run_command(
         fit_command(
             genetic_covariance_file=covariance_path,
             phenotypic_covariance_file=phenotype_covariance_file,
-            target=remove_all_suffixes(target).stem,
+            target=target_name,
             output_file=maxgcp_weights_path,
             include_target=include_target,
         )
