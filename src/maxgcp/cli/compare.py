@@ -29,7 +29,7 @@ def compare_maxh(
     output_file: Annotated[
         Path, typer.Option("--out", help="Path to output GWAS summary statistics file")
     ],
-):
+) -> None:
     """Run MaxH on a set of GWAS summary statistics."""
     logger.info("Loading phenotypic covariance matrix")
     sep = "," if phenotype_covariance_file.suffix == ".csv" else "\t"
@@ -87,4 +87,34 @@ def compare_maxh(
     )
     maxh_weights_df = pd.DataFrame(maxh_weights, index=index, columns=columns)
     maxh_weights_df.to_csv(output_file, sep="\t")
+    logger.info("Done")
+
+
+@app.command(name="pca")
+def pca(
+    phenotype_covariance_file: Annotated[
+        Path,
+        typer.Option("--pcov", exists=True, help="Path to phenotypic covariance file"),
+    ],
+    output_file: Annotated[
+        Path, typer.Option("--out", help="Path to output file")
+    ] = Path("maxgcp_pca.tsv"),
+) -> None:
+    """Compute PCA on a set of phenotypes."""
+    logger.info("Loading phenotypic covariance matrix")
+    sep = "," if phenotype_covariance_file.suffix == ".csv" else "\t"
+    phenotypic_covariance_df = pd.read_csv(
+        phenotype_covariance_file, sep=sep, index_col=0
+    )
+    logger.info("Computing PCA")
+    eigvals, eigvecs = np.linalg.eigh(phenotypic_covariance_df.values)
+    order = np.argsort(eigvals)[::-1]
+    projection = eigvecs[:, order]
+    logger.info("Saving PCA weights")
+    phenotypes = phenotypic_covariance_df.index.rename("phenotype")
+    projections = pd.Index(
+        [f"PC{i}" for i in range(1, len(phenotypes) + 1)], name="projection"
+    )
+    pca_weights_df = pd.DataFrame(projection, index=phenotypes, columns=projections)
+    pca_weights_df.to_csv(output_file, sep="\t")
     logger.info("Done")
