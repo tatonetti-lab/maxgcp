@@ -1,6 +1,6 @@
 [project]
 name = "maxgcp"
-version = "0.1.4"
+version = "0.1.5"
 description = "Optimized phenotype definitions boost GWAS power"
 authors = [
     {name = "zietzm", email = "michael.zietz@gmail.com"}
