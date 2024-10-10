@@ -2,9 +2,9 @@ import logging
 from pathlib import Path
 from typing import Annotated
 
-import ldsc.scripts.ldsc
-import ldsc.scripts.munge_sumstats
 import typer
+
+from maxgcp.ldsc.scripts import ldsc, munge_sumstats
 
 logger = logging.getLogger("rich")
 
@@ -50,7 +50,7 @@ def ldsc_munge(
     ] = 0.0,
 ) -> None:
     """Process a GWAS summary statistics file using LDSC."""
-    args = ldsc.scripts.munge_sumstats.parser.parse_args(
+    args = munge_sumstats.parser.parse_args(
         [
             "--sumstats",
             gwas_path.as_posix(),
@@ -70,7 +70,7 @@ def ldsc_munge(
             f"{signed_sumstat_col},{signed_sumstat_null}",
         ]
     )
-    ldsc.scripts.munge_sumstats.munge_sumstats(args)
+    munge_sumstats.munge_sumstats(args)
 
 
 @app.command(name="rg")
@@ -92,7 +92,7 @@ def ldsc_rg(
     ],
 ) -> None:
     """Compute genetic covariances using LDSC."""
-    args = ldsc.scripts.ldsc.parser.parse_args(
+    args = ldsc.parser.parse_args(
         [
             "--rg",
             ",".join(p.as_posix() for p in gwas_paths),
@@ -104,4 +104,4 @@ def ldsc_rg(
             output_stem.as_posix(),
         ]
     )
-    ldsc.scripts.ldsc.main(args)
+    ldsc.main(args)

@@ -1,6 +1,6 @@
 [project]
 name = "maxgcp"
-version = "0.1.3"
+version = "0.1.4"
 description = "Optimized phenotype definitions boost GWAS power"
 authors = [
     {name = "zietzm", email = "michael.zietz@gmail.com"}
@@ -12,9 +12,10 @@ dependencies = [
     "typer>=0.12.4",
     "rich>=13.7.1",
     "polars>=1.5.0",
-    "igwas",
-    "ldsc",
-    "pymbend",
+    "igwas>=0.1.0",
+    "pymbend>=0.1.0",
+    "bitarray>=2.9.2",
+    "pyzstd>=0.16.1",
 ]
 readme = "README.md"
 requires-python = ">= 3.10"
@@ -49,8 +50,3 @@ dev-dependencies = [
     "ruff>=0.6.2",
     "pytest>=8.3.2",
 ]
-
-[tool.uv.sources]
-igwas = { git = "https://github.com/tatonetti-lab/indirect-gwas" }
-ldsc = { git = "https://github.com/zietzm/ldsc", branch = "py3" }
-pymbend = { git = "https://github.com/zietzm/pymbend" }
