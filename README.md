@@ -47,10 +47,34 @@ array([-0.34242555,  0.18438299,  1.87895044,  0.        ])
 MaxGCP fits a phenotype (y) to a target (z) to maximize coheritability between y and z.
 This package can also fit a maximally heritable phenotype `maxgcp.fit_heritability` or a maximally genetically correlated phenotype (`maxgcp.fit_genetic_correlation`.
 
+## Command-line usage
+
+MaxGCP also exposes the `maxgcp` command in the command line.
+Once `pip` installed, simply run `maxgcp --help` to see all possible commands.
+
+Here's an example using GWAS summary statistics:
+
+```bash
+maxgcp run \
+  --pcov phenotypic_covariance_matrix.csv \ # Can be computed using maxgcp pcov
+  --tagfile ld_ref_panel/eur_w_ld_chr \ # LDSC tagfiles
+  --target E11 \ # Which GWAS file should be the target phenotype?
+  --n-covar 12 \ # How many covariates were used in the input GWAS (e.g. age+sex+PC1+...+PC10 = 12)
+  --no-compress-output \ # Do not compress the output file
+  --out E11.maxgcp.tsv \ # The output file to create
+  E11.glm.linear I10.glm.linear gwas/*.glm.linear  # Input GWAS summary statistic files
+```
+
+To run end-to-end like this, you'll need some LDSC tagfiles.
+These can be obtained from a few different places, such as [the MTAG repository](https://github.com/JonJala/mtag/tree/9e17f3cf1fbcf57b6bc466daefdc51fd0de3c5dc/ld_ref_panel).
+For more information about these or the LD score regressions that will be run, see [the LDSC repository](https://github.com/bulik/ldsc), particularly [the wiki](https://github.com/bulik/ldsc/wiki).
+
+For more information about `maxgcp run` or any other subcommand, please run `maxgcp run --help`, `maxgcp pcov --help`, etc. as appropriate.
+
 ## Installation
 
 ```bash
 pip install maxgcp
 ```
 
-`maxgcp` depends on NumPy, SciPy, and pandas.
+Please see this repository's [pyproject.toml](pyproject.toml) for a full list of dependencies.
